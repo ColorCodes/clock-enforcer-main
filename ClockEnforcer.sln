@@ -1,0 +1,29 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35806.99
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClockEnforcer", "ClockEnforcer.csproj", "{224DF6CC-0984-4D2E-91D3-18848428A0AA}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "setup-clock-enforcer", "..\setup-clock-enforcer\setup-clock-enforcer.vdproj", "{D44C02ED-F333-D54B-0D92-227ABE00560E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{224DF6CC-0984-4D2E-91D3-18848428A0AA}.Debug|Any CPU.ActiveCfg = Release|Any CPU
+		{224DF6CC-0984-4D2E-91D3-18848428A0AA}.Debug|Any CPU.Build.0 = Release|Any CPU
+		{224DF6CC-0984-4D2E-91D3-18848428A0AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{224DF6CC-0984-4D2E-91D3-18848428A0AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D44C02ED-F333-D54B-0D92-227ABE00560E}.Debug|Any CPU.ActiveCfg = Debug
+		{D44C02ED-F333-D54B-0D92-227ABE00560E}.Release|Any CPU.ActiveCfg = Release
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {007D83AB-FBFB-483E-9D20-E844F489167E}
+	EndGlobalSection
+EndGlobal
