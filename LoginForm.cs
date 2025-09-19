@@ -24,15 +24,18 @@ namespace ClockEnforcer
         private System.Windows.Forms.Timer loginReenableTimer;
 
         private bool overtimeAdded = false;
+        private const int WM_COPYDATA = 0x004A;
         private NotifyIcon trayIcon;
         protected override void WndProc(ref Message m)
         {
-            if (m.Msg == 0x004A) // WM_COPYDATA
+            if (m.Msg == WM_COPYDATA && m.LParam != IntPtr.Zero)
             {
-                COPYDATASTRUCT cds = (COPYDATASTRUCT)Marshal.PtrToStructure(m.LParam, typeof(COPYDATASTRUCT));
-                string command = Marshal.PtrToStringAnsi(cds.lpData);
+                COPYDATASTRUCT cds = Marshal.PtrToStructure<COPYDATASTRUCT>(m.LParam);
+                string command = cds.cbData > 0 && cds.lpData != IntPtr.Zero
+                    ? Marshal.PtrToStringAnsi(cds.lpData, cds.cbData)?.TrimEnd('\0')
+                    : null;
 
-                if (command == "SHOW")
+                if (string.Equals(command, "SHOW", StringComparison.OrdinalIgnoreCase))
                 {
                     this.Invoke((MethodInvoker)(() =>
                     {
