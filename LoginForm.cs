@@ -69,7 +69,7 @@ namespace ClockEnforcer
 
 
             // Leer la API key del entorno
-            string apiKey = Environment.GetEnvironmentVariable("SAASHR_API_KEY", EnvironmentVariableTarget.Machine);
+            string apiKey = Environment.GetEnvironmentVariable("SAASHR_API_KEY");
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 MessageBox.Show("Por favor define SAASHR_API_KEY en tus Environment Variables",
