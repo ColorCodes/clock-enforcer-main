@@ -14,8 +14,7 @@ namespace ClockEnforcer
         public PCLoginEnforcer()
         {
             string apiKey = Environment.GetEnvironmentVariable(
-                "SAASHR_API_KEY",
-                EnvironmentVariableTarget.Machine);
+                "SAASHR_API_KEY");
             if (string.IsNullOrWhiteSpace(apiKey))
                 throw new InvalidOperationException("Set SAASHR_API_KEY in the Environment Variables");
 

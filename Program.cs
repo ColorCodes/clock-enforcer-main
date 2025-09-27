@@ -20,6 +20,8 @@ namespace ClockEnforcer
         [STAThread]
         static void Main()
         {
+            EnvLoader.LoadIfPresent();
+
             bool createdNew;
             using (Mutex mutex = new Mutex(true, "ClockEnforcerAppMutex", out createdNew))
             {
