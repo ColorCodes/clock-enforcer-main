@@ -83,7 +83,7 @@ namespace ClockEnforcer
             authService = new AuthService(apiKey);
             punchService = new PunchService(authService);
 
-            statusTextBox.Text = "Please log in. You have 2 minutes to clock in before forced logout.";
+            statusTextBox.Text = "Please log in. You have 2 minutes to clock in before forced lock.";
 
             this.Load += LoginForm_Load;
             SetupTrayIcon();
@@ -161,8 +161,9 @@ namespace ClockEnforcer
         private void LoginTimer_Tick(object sender, EventArgs e)
         {
             loginTimer.Stop();
-            MessageBox.Show("You did not clock in within 2 minutes. Logging off.");
+            MessageBox.Show("You did not clock in within 2 minutes. Locking workstation.");
             new PCLoginEnforcer().ForceUserLogOff();
+            loginTimer.Start();
         }
 
         private async void OvertimeCheckTimer_Tick(object sender, EventArgs e)
