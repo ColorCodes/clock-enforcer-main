@@ -20,8 +20,8 @@ Status message box
 Handles:
 Authentication via AuthService
 Auto clock‑in after login, delaying 1s
-2‑minute auto‑logout guard if no punch-in
-5‑hour auto‑logout guard if no punch-out
+2‑minute auto-lock guard if no punch-in
+5‑hour auto-lock guard if no punch-out
 Punch action (clock‑in/out) via PunchService
 Launching the OvertimeRequestForm
 
@@ -42,7 +42,7 @@ Provides IsUserLockedOut to enforce lockout periods based on last clock‑out ti
 
 -PCLoginEnforcer.cs
 Called at process startup (via Program.cs) and on explicit calls.
-Uses LogService.IsUserLockedOut to decide whether to immediately log off the Windows session.
+Uses LogService.IsUserLockedOut to decide whether to immediately lock the Windows session.
 
 -SessionEnforcementManager.cs
 Centralizes all session timers:

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using ClockEnforcer.Services;
@@ -79,7 +80,21 @@ namespace ClockEnforcer
             }
 
             await Task.Delay(10000);
-            System.Diagnostics.Process.Start("shutdown", "/l");
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "rundll32.exe",
+                    Arguments = "user32.dll,LockWorkStation",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+            }
+            catch (Exception ex)
+            {
+                File.AppendAllText(debugLogPath,
+                    $"{DateTime.Now}: ERROR locking workstation: {ex.Message}{Environment.NewLine}");
+            }
         }
 
         private async Task ForcePunchOutAsync(string user)
