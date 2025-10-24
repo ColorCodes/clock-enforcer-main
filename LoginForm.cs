@@ -17,6 +17,8 @@ namespace ClockEnforcer
         private readonly AuthService authService;
         private readonly PunchService punchService;
         private readonly LogService logService = new LogService();
+        private readonly string overtimeLogPath = AppPaths.GetPath("overtime_debug_log.txt");
+        private readonly string errorLogPath = AppPaths.GetPath("error_log.txt");
         private bool loginAlreadyLogged = false;
 
         private System.Windows.Forms.Timer loginTimer;
@@ -179,7 +181,7 @@ namespace ClockEnforcer
                 var response = await client.GetAsync(url);
                 string json = await response.Content.ReadAsStringAsync();
 
-                File.AppendAllText("overtime_debug_log.txt", $"{DateTime.Now}: Raw JSON: {json}{Environment.NewLine}");
+                File.AppendAllText(overtimeLogPath, $"{DateTime.Now}: Raw JSON: {json}{Environment.NewLine}");
 
                 if (!response.IsSuccessStatusCode) return;
 
@@ -187,12 +189,12 @@ namespace ClockEnforcer
                 if (result?.data?.accepted == true)
                 {
                     overtimeAdded = true;
-                    File.AppendAllText("overtime_debug_log.txt", $"{DateTime.Now}: Overtime approved: {result.data.hours}h{Environment.NewLine}");
+                    File.AppendAllText(overtimeLogPath, $"{DateTime.Now}: Overtime approved: {result.data.hours}h{Environment.NewLine}");
                 }
             }
             catch (Exception ex)
             {
-                File.AppendAllText("overtime_debug_log.txt", $"{DateTime.Now}: ERROR: {ex.Message}{Environment.NewLine}");
+                File.AppendAllText(overtimeLogPath, $"{DateTime.Now}: ERROR: {ex.Message}{Environment.NewLine}");
             }
         }
 
@@ -225,7 +227,7 @@ namespace ClockEnforcer
             catch (Exception ex)
             {
                 statusTextBox.Text = "An error occurred during login. Please try again.";
-                File.AppendAllText("error_log.txt", $"{DateTime.Now}: {ex}{Environment.NewLine}");
+                File.AppendAllText(errorLogPath, $"{DateTime.Now}: {ex}{Environment.NewLine}");
             }
             finally
             {
