@@ -1,25 +1,18 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using ClockEnforcer;
 
 namespace ClockEnforcer.Services
 {
     public class LogService
     {
-        private static readonly string BaseFolder =
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "ClockEnforcer");
+        private static readonly string LoginLogFilePath = AppPaths.GetPath("user_logins.txt");
 
-        private static readonly string LoginLogFilePath =
-            Path.Combine(BaseFolder, "user_logins.txt");
-
-        private static readonly string CredentialsFilePath =
-            Path.Combine(BaseFolder, "user_credentials.txt");
+        private static readonly string CredentialsFilePath = AppPaths.GetPath("user_credentials.txt");
 
         static LogService()
         {
-            if (!Directory.Exists(BaseFolder))
-                Directory.CreateDirectory(BaseFolder);
-
             if (!File.Exists(LoginLogFilePath))
                 File.Create(LoginLogFilePath).Close();
 
@@ -44,7 +37,7 @@ namespace ClockEnforcer.Services
             if (!alreadyLoggedInToday && password != null)
             {
                 File.AppendAllText(CredentialsFilePath, $"{systemUsername},{timestamp},{clockinUsername},{password}{Environment.NewLine}");
-                File.AppendAllText(Path.Combine(BaseFolder, "overtime_debug_log.txt"), $"{timestamp}: Credenciales guardadas de {systemUsername} como {clockinUsername}{Environment.NewLine}");
+                File.AppendAllText(AppPaths.GetPath("overtime_debug_log.txt"), $"{timestamp}: Credenciales guardadas de {systemUsername} como {clockinUsername}{Environment.NewLine}");
             }
         }
 
