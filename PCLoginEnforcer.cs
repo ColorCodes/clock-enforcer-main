@@ -12,15 +12,11 @@ namespace ClockEnforcer
         private readonly PunchService punchService;
         private readonly LogService logService = new LogService();
 
+        private const string ApiKey = "iibh7b86dlces64stxqwm15n65kvkhf3";
+
         public PCLoginEnforcer()
         {
-            string apiKey = Environment.GetEnvironmentVariable(
-                "SAASHR_API_KEY",
-                EnvironmentVariableTarget.Machine);
-            if (string.IsNullOrWhiteSpace(apiKey))
-                throw new InvalidOperationException("Set SAASHR_API_KEY in the Environment Variables");
-
-            authService = new AuthService(apiKey);
+            authService = new AuthService(ApiKey);
             punchService = new PunchService(authService);
         }
 
