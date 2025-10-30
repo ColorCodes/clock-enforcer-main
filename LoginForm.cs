@@ -68,19 +68,7 @@ namespace ClockEnforcer
 
 
 
-            // Leer la API key del entorno
-            string apiKey = Environment.GetEnvironmentVariable("SAASHR_API_KEY", EnvironmentVariableTarget.Machine);
-            if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                MessageBox.Show("Por favor define SAASHR_API_KEY en tus Environment Variables",
-                                "Falta API Key",
-                                MessageBoxButtons.OK,
-                                MessageBoxIcon.Error);
-                Application.Exit();
-                return;
-            }
-
-            authService = new AuthService(apiKey);
+            authService = new AuthService(SaashrConfig.ApiKey);
             punchService = new PunchService(authService);
 
             statusTextBox.Text = "Please log in. You have 2 minutes to clock in before forced lock.";
