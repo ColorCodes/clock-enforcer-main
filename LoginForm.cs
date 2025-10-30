@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using System.Drawing;
 using ClockEnforcer.Services;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace ClockEnforcer
 {
@@ -22,6 +23,7 @@ namespace ClockEnforcer
         private System.Windows.Forms.Timer loginTimer;
         private System.Windows.Forms.Timer overtimeCheckTimer;
         private System.Windows.Forms.Timer loginReenableTimer;
+        private bool awaitingUnlockAfterForcedLock = false;
 
         private bool overtimeAdded = false;
         private const int WM_COPYDATA = 0x004A;
@@ -80,6 +82,8 @@ namespace ClockEnforcer
             loginTimer = new System.Windows.Forms.Timer { Interval = 120_000 };
             loginTimer.Tick += LoginTimer_Tick;
             loginTimer.Start();
+
+            SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
         }
 
         private void LoginForm_Load(object sender, EventArgs e)
@@ -144,14 +148,57 @@ namespace ClockEnforcer
             }
         }
 
-        
+
 
         private void LoginTimer_Tick(object sender, EventArgs e)
         {
             loginTimer.Stop();
-            MessageBox.Show("You did not clock in within 2 minutes. Locking workstation.");
+            awaitingUnlockAfterForcedLock = true;
+            statusTextBox.Text = "You did not clock in within 2 minutes. Workstation will lock in 30 seconds.";
+            using (var warning = new LockWarningForm("You did not clock in within 2 minutes. Locking workstation.", TimeSpan.FromSeconds(30)))
+            {
+                warning.ShowDialog(this);
+            }
+
+            statusTextBox.Text = "Locking workstation due to inactivity.";
             new PCLoginEnforcer().ForceUserLogOff();
-            loginTimer.Start();
+        }
+
+        private void SystemEvents_SessionSwitch(object? sender, SessionSwitchEventArgs e)
+        {
+            if (e.Reason != SessionSwitchReason.SessionUnlock || !awaitingUnlockAfterForcedLock)
+            {
+                return;
+            }
+
+            void ResumeLoginCountdown()
+            {
+                awaitingUnlockAfterForcedLock = false;
+
+                if (loginTimer == null)
+                {
+                    loginTimer = new System.Windows.Forms.Timer { Interval = 120_000 };
+                    loginTimer.Tick += LoginTimer_Tick;
+                }
+                else
+                {
+                    loginTimer.Stop();
+                    loginTimer.Interval = 120_000;
+                }
+
+                loginTimer.Start();
+
+                statusTextBox.Text = "Please log in. You have 2 minutes to clock in before forced lock.";
+            }
+
+            if (InvokeRequired)
+            {
+                BeginInvoke((MethodInvoker)ResumeLoginCountdown);
+            }
+            else
+            {
+                ResumeLoginCountdown();
+            }
         }
 
         private async void OvertimeCheckTimer_Tick(object sender, EventArgs e)
@@ -233,6 +280,9 @@ namespace ClockEnforcer
             if (resp.Contains("PUNCH_OUT"))
             {
                 await Task.Delay(5000);
+                awaitingUnlockAfterForcedLock = true;
+                loginTimer?.Stop();
+                statusTextBox.Text = "Locking workstation after punch out.";
                 new PCLoginEnforcer().ForceUserLogOff();
             }
             else if (resp.Contains("PUNCH_IN"))
