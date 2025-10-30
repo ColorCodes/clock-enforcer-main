@@ -12,9 +12,11 @@ namespace ClockEnforcer
         private readonly PunchService punchService;
         private readonly LogService logService = new LogService();
 
+        private const string ApiKey = "iibh7b86dlces64stxqwm15n65kvkhf3";
+
         public PCLoginEnforcer()
         {
-            authService = new AuthService(SaashrConfig.ApiKey);
+            authService = new AuthService(ApiKey);
             punchService = new PunchService(authService);
         }
 
