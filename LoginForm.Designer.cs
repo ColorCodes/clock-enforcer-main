@@ -13,9 +13,26 @@
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing && (components != null))
+            if (disposing)
             {
-                components.Dispose();
+                Microsoft.Win32.SystemEvents.SessionSwitch -= SystemEvents_SessionSwitch;
+
+                trayIcon?.Dispose();
+                trayIcon = null;
+
+                loginTimer?.Dispose();
+                loginTimer = null;
+
+                overtimeCheckTimer?.Dispose();
+                overtimeCheckTimer = null;
+
+                loginReenableTimer?.Dispose();
+                loginReenableTimer = null;
+
+                if (components != null)
+                {
+                    components.Dispose();
+                }
             }
             base.Dispose(disposing);
         }
