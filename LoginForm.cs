@@ -154,14 +154,14 @@ namespace ClockEnforcer
         {
             loginTimer.Stop();
             awaitingUnlockAfterForcedLock = true;
-            statusTextBox.Text = "You did not clock in within 2 minutes. Workstation will lock in 30 seconds.";
-            using (var warning = new LockWarningForm("You did not clock in within 2 minutes. Locking workstation.", TimeSpan.FromSeconds(30)))
+            statusTextBox.Text = "You did not clock in within 2 minutes. Workstation will lock in 5 seconds.";
+            using (var warning = new LockWarningForm("You did not clock in within 2 minutes. Locking workstation.", TimeSpan.FromSeconds(5)))
             {
                 warning.ShowDialog(this);
             }
 
             statusTextBox.Text = "Locking workstation due to inactivity.";
-            new PCLoginEnforcer().ForceUserLogOff();
+            new PCLoginEnforcer().ForceUserLogOff(lockImmediately: true);
         }
 
         private void SystemEvents_SessionSwitch(object? sender, SessionSwitchEventArgs e)

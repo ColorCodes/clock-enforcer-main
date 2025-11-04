@@ -29,17 +29,22 @@ namespace ClockEnforcer
             }
         }
 
-        public void ForceUserLogOff()
+        public void ForceUserLogOff(bool lockImmediately = false)
         {
-            _ = ForceLogOffAsync();
+            _ = ForceLogOffAsync(lockImmediately);
         }
 
-        private async Task ForceLogOffAsync()
+        private async Task ForceLogOffAsync(bool lockImmediately)
         {
             string debugLogPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
                 "ClockEnforcer",
                 "enforcer_debug_log.txt");
+
+            if (lockImmediately)
+            {
+                TryLockWorkstation(debugLogPath);
+            }
 
             try
             {
@@ -75,7 +80,15 @@ namespace ClockEnforcer
                     $"{DateTime.Now}: ERROR in ForceLogOffAsync: {ex.Message}{Environment.NewLine}");
             }
 
-            await Task.Delay(10000);
+            if (!lockImmediately)
+            {
+                await Task.Delay(10000);
+                TryLockWorkstation(debugLogPath);
+            }
+        }
+
+        private void TryLockWorkstation(string debugLogPath)
+        {
             try
             {
                 Process.Start(new ProcessStartInfo
