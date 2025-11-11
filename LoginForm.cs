@@ -16,9 +16,8 @@ namespace ClockEnforcer
     {
         private readonly AuthService authService;
         private readonly PunchService punchService;
-        private readonly LogService logService = new LogService();
-        private bool loginAlreadyLogged = false;
-
+        private readonly LogService logService;
+        private readonly PCLoginEnforcer enforcer;
         private System.Windows.Forms.Timer loginTimer;
         private System.Windows.Forms.Timer overtimeCheckTimer;
         private System.Windows.Forms.Timer loginReenableTimer;
@@ -26,6 +25,7 @@ namespace ClockEnforcer
         private bool overtimeAdded = false;
         private const int WM_COPYDATA = 0x004A;
         private NotifyIcon trayIcon;
+        // Listens for "SHOW" commands sent from already-running instances.
         protected override void WndProc(ref Message m)
         {
             if (m.Msg == WM_COPYDATA && m.LParam != IntPtr.Zero)
@@ -68,8 +68,11 @@ namespace ClockEnforcer
 
 
 
+            // Compose shared services once and reuse them across the form lifetime.
+            logService = new LogService();
             authService = new AuthService(SaashrConfig.ApiKey);
-            punchService = new PunchService(authService);
+            punchService = new PunchService(authService, logService);
+            enforcer = new PCLoginEnforcer(logService);
 
             statusTextBox.Text = "Please log in. You have 2 minutes to clock in before forced lock.";
 
@@ -77,6 +80,7 @@ namespace ClockEnforcer
             SetupTrayIcon();
             this.Resize += LoginForm_Resize;
 
+            // Users must punch within two minutes of launching the form.
             loginTimer = new System.Windows.Forms.Timer { Interval = 120_000 };
             loginTimer.Tick += LoginTimer_Tick;
             loginTimer.Start();
@@ -88,6 +92,7 @@ namespace ClockEnforcer
             btnRequestOvertime.Enabled = logService.GetTodayLoginCount(user) >= 2;
         }
 
+        // Creates the tray icon so the app can live in the notification area.
         private void SetupTrayIcon()
         {
             trayIcon = new NotifyIcon
@@ -121,6 +126,7 @@ namespace ClockEnforcer
             };
         }
 
+        // Keeps the UI hidden in the tray when minimised.
         private void LoginForm_Resize(object sender, EventArgs e)
         {
             if (this.WindowState == FormWindowState.Minimized)
@@ -130,6 +136,7 @@ namespace ClockEnforcer
             }
         }
 
+        // Prevents accidental exits: minimise instead of closing when the user clicks X.
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (e.CloseReason == CloseReason.UserClosing)
@@ -150,10 +157,11 @@ namespace ClockEnforcer
         {
             loginTimer.Stop();
             MessageBox.Show("You did not clock in within 2 minutes. Locking workstation.");
-            new PCLoginEnforcer().ForceUserLogOff();
+            enforcer.ForceUserLogOff();
             loginTimer.Start();
         }
 
+        // Polls the overtime API until approval is detected for the current user.
         private async void OvertimeCheckTimer_Tick(object sender, EventArgs e)
         {
             if (overtimeAdded) return;
@@ -184,6 +192,7 @@ namespace ClockEnforcer
             }
         }
 
+        // Main login button handler: authenticate, punch, and manage timers.
         private async void btnLogin_Click(object sender, EventArgs e)
         {
             btnLogin.Enabled = false;
@@ -225,6 +234,7 @@ namespace ClockEnforcer
             }
         }
 
+        // Executes the punch workflow and schedules any necessary follow-up actions.
         private async Task ProcessPunchAsync(string user, string pass)
         {
             string resp = await punchService.PunchAsync();
@@ -233,7 +243,7 @@ namespace ClockEnforcer
             if (resp.Contains("PUNCH_OUT"))
             {
                 await Task.Delay(5000);
-                new PCLoginEnforcer().ForceUserLogOff();
+                enforcer.ForceUserLogOff();
             }
             else if (resp.Contains("PUNCH_IN"))
             {

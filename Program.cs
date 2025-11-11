@@ -18,6 +18,7 @@ namespace ClockEnforcer
         private const int WM_COPYDATA = 0x004A;
 
         [STAThread]
+        // Entry point: enforce single instance, register startup hooks, and launch the UI.
         static void Main()
         {
             bool createdNew;
@@ -56,12 +57,14 @@ namespace ClockEnforcer
 
                 ApplicationConfiguration.Initialize();
 
+                // Register the app on first launch so it auto-starts on future boots.
                 if (!IsStartupEntryPresent())
                 {
                     StartupHelper.AddApplicationToStartup();
                     StartupHelper.CreateStartupShortcutUsingPowerShell();
                 }
 
+                // Run an immediate enforcement check before exposing the form.
                 PCLoginEnforcer enforcer = new PCLoginEnforcer();
                 string currentUser = Environment.UserName;
                 enforcer.EnforceLoginRestrictions(currentUser);
