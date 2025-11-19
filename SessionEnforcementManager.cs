@@ -102,21 +102,21 @@ namespace ClockEnforcer
         private void PreLoginExpired(object state)
         {
             WarningIssued?.Invoke("You did not clock in within 2 minutes. Locking workstation.");
-            WriteDebug("Pre-login grace expired. Locking workstation.");
+            WriteDebug("Pre-login grace expired. Forcing logout.");
             enforcer.ForceUserLogOff();
         }
 
         private void LunchExpired(object state)
         {
-            WarningIssued?.Invoke("Lunch window exceeded. Forcing clock out for lunch and locking workstation.");
-            WriteDebug("Lunch timer expired. Locking workstation.");
+            WarningIssued?.Invoke("Lunch window exceeded. Forcing clock out for lunch.");
+            WriteDebug("Lunch timer expired. Forcing logout.");
             enforcer.ForceUserLogOff();
         }
 
         private void ForcedLogoutExpired(object state)
         {
-            WarningIssued?.Invoke("Shift limit reached. Locking workstation.");
-            WriteDebug("Forced shift timer expired. Locking workstation.");
+            WarningIssued?.Invoke("Shift limit reached. Enforcing final logout.");
+            WriteDebug("Forced shift timer expired. Forcing logout.");
             enforcer.ForceUserLogOff();
             lock (gate)
             {

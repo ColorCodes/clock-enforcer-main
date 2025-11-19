@@ -164,27 +164,7 @@ namespace ClockEnforcer
         {
             statusTextBox.Text = message;
             trayIcon?.ShowBalloonTip(3000, "Clock Enforcer", message, ToolTipIcon.Warning);
-            var autoCloseTimer = new System.Windows.Forms.Timer { Interval = 5000 };
-            EventHandler handler = null;
-            handler = (s, e) =>
-            {
-                autoCloseTimer.Stop();
-                autoCloseTimer.Tick -= handler;
-                autoCloseTimer.Dispose();
-                SendKeys.SendWait("{ENTER}");
-            };
-
-            autoCloseTimer.Tick += handler;
-            autoCloseTimer.Start();
-
             MessageBox.Show(message, "Clock Enforcer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-
-            if (autoCloseTimer != null)
-            {
-                autoCloseTimer.Tick -= handler;
-                autoCloseTimer.Stop();
-                autoCloseTimer.Dispose();
-            }
         }
 
         private void LoginForm_Resize(object sender, EventArgs e)
