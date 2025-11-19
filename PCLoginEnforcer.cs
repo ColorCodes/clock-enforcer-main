@@ -22,6 +22,12 @@ namespace ClockEnforcer
 
         public void EnforceLoginRestrictions(string username)
         {
+            if (logService.HasCompletedShiftForToday(username))
+            {
+                ForceUserLogOff();
+                return;
+            }
+
             int todayCount = logService.GetTodayLoginCount(username);
             if (todayCount % 2 != 0)
             {

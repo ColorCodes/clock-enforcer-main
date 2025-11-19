@@ -15,6 +15,8 @@ namespace ClockEnforcer.Services
         private static readonly string CredentialsFilePath =
             Path.Combine(BaseFolder, "user_credentials.txt");
 
+        public static string ApplicationFolder => BaseFolder;
+
         static LogService()
         {
             if (!Directory.Exists(BaseFolder))
@@ -113,6 +115,26 @@ namespace ClockEnforcer.Services
         {
             int loginCount = GetTodayLoginCount(username);
             return loginCount % 2 == 1;
+        }
+
+        public int GetTodayClockOutCount(string username)
+        {
+            if (!File.Exists(LoginLogFilePath))
+            {
+                return 0;
+            }
+
+            return File.ReadAllLines(LoginLogFilePath)
+                .Where(line => line.StartsWith(username + ",CLOCKOUT"))
+                .Select(line => line.Split(','))
+                .Count(parts => parts.Length >= 3 &&
+                              DateTime.TryParse(parts[2], out var dt) &&
+                              dt.Date == DateTime.Today);
+        }
+
+        public bool HasCompletedShiftForToday(string username)
+        {
+            return GetTodayLoginCount(username) >= 2 && GetTodayClockOutCount(username) >= 2;
         }
     }
 }
