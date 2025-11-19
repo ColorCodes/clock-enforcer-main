@@ -2,8 +2,6 @@
 // LoginForm.cs
 using System;
 using System.IO;
-using System.Net.Http;
-using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Drawing;
@@ -17,9 +15,11 @@ namespace ClockEnforcer
         private readonly AuthService authService;
         private readonly PunchService punchService;
         private readonly LogService logService = new LogService();
-        private bool loginAlreadyLogged = false;
+        private readonly SessionEnforcementManager sessionManager;
+        private readonly OvertimeRequestService overtimeService = new OvertimeRequestService();
+        private readonly string overtimeLogPath;
+        private readonly string errorLogPath;
 
-        private System.Windows.Forms.Timer loginTimer;
         private System.Windows.Forms.Timer overtimeCheckTimer;
         private System.Windows.Forms.Timer loginReenableTimer;
 
@@ -63,29 +63,56 @@ namespace ClockEnforcer
         {
             InitializeComponent();
 
-            this.Text = "Clock Enforcer";
-
-
-
+            Text = "Clock Enforcer";
 
             authService = new AuthService(SaashrConfig.ApiKey);
             punchService = new PunchService(authService);
+            sessionManager = new SessionEnforcementManager(Environment.UserName);
+            SessionContext.SessionManager = sessionManager;
+            sessionManager.WarningIssued += SessionManager_WarningIssued;
+            sessionManager.StartPreLoginCountdown();
+
+            overtimeLogPath = Path.Combine(LogService.ApplicationFolder, "overtime_debug_log.txt");
+            errorLogPath = Path.Combine(LogService.ApplicationFolder, "error_log.txt");
 
             statusTextBox.Text = "Please log in. You have 2 minutes to clock in before forced lock.";
 
-            this.Load += LoginForm_Load;
+            Load += LoginForm_Load;
+            FormClosed += LoginForm_FormClosed;
             SetupTrayIcon();
-            this.Resize += LoginForm_Resize;
-
-            loginTimer = new System.Windows.Forms.Timer { Interval = 120_000 };
-            loginTimer.Tick += LoginTimer_Tick;
-            loginTimer.Start();
+            Resize += LoginForm_Resize;
         }
 
         private void LoginForm_Load(object sender, EventArgs e)
         {
             string user = Environment.UserName;
             btnRequestOvertime.Enabled = logService.GetTodayLoginCount(user) >= 2;
+        }
+
+        private void LoginForm_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            StopOvertimeMonitoring();
+
+            if (loginReenableTimer != null)
+            {
+                loginReenableTimer.Stop();
+                loginReenableTimer.Dispose();
+                loginReenableTimer = null;
+            }
+
+            sessionManager.WarningIssued -= SessionManager_WarningIssued;
+            sessionManager.Dispose();
+            if (ReferenceEquals(SessionContext.SessionManager, sessionManager))
+            {
+                SessionContext.SessionManager = null;
+            }
+
+            if (trayIcon != null)
+            {
+                trayIcon.Visible = false;
+                trayIcon.Dispose();
+                trayIcon = null;
+            }
         }
 
         private void SetupTrayIcon()
@@ -121,6 +148,45 @@ namespace ClockEnforcer
             };
         }
 
+        private void SessionManager_WarningIssued(string message)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke((MethodInvoker)(() => DisplayWarning(message)));
+            }
+            else
+            {
+                DisplayWarning(message);
+            }
+        }
+
+        private void DisplayWarning(string message)
+        {
+            statusTextBox.Text = message;
+            trayIcon?.ShowBalloonTip(3000, "Clock Enforcer", message, ToolTipIcon.Warning);
+            var autoCloseTimer = new System.Windows.Forms.Timer { Interval = 5000 };
+            EventHandler handler = null;
+            handler = (s, e) =>
+            {
+                autoCloseTimer.Stop();
+                autoCloseTimer.Tick -= handler;
+                autoCloseTimer.Dispose();
+                SendKeys.SendWait("{ENTER}");
+            };
+
+            autoCloseTimer.Tick += handler;
+            autoCloseTimer.Start();
+
+            MessageBox.Show(message, "Clock Enforcer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+            if (autoCloseTimer != null)
+            {
+                autoCloseTimer.Tick -= handler;
+                autoCloseTimer.Stop();
+                autoCloseTimer.Dispose();
+            }
+        }
+
         private void LoginForm_Resize(object sender, EventArgs e)
         {
             if (this.WindowState == FormWindowState.Minimized)
@@ -143,44 +209,32 @@ namespace ClockEnforcer
                 base.OnFormClosing(e);
             }
         }
-
-        
-
-        private void LoginTimer_Tick(object sender, EventArgs e)
-        {
-            loginTimer.Stop();
-            MessageBox.Show("You did not clock in within 2 minutes. Locking workstation.");
-            new PCLoginEnforcer().ForceUserLogOff();
-            loginTimer.Start();
-        }
-
         private async void OvertimeCheckTimer_Tick(object sender, EventArgs e)
         {
-            if (overtimeAdded) return;
+            if (overtimeAdded)
+            {
+                return;
+            }
 
             string user = Environment.UserName;
-            string url = $"https://clock.adrianas.com/backend/timeclock/overtime/today?ad_username={user}";
 
             try
             {
-                using var client = new HttpClient();
-                var response = await client.GetAsync(url);
-                string json = await response.Content.ReadAsStringAsync();
-
-                File.AppendAllText("overtime_debug_log.txt", $"{DateTime.Now}: Raw JSON: {json}{Environment.NewLine}");
-
-                if (!response.IsSuccessStatusCode) return;
-
-                var result = JsonSerializer.Deserialize<OvertimeTodayResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (result?.data?.accepted == true)
+                var result = await overtimeService.GetTodayOvertimeStatusAsync(user);
+                if (result?.Data?.Accepted == true)
                 {
                     overtimeAdded = true;
-                    File.AppendAllText("overtime_debug_log.txt", $"{DateTime.Now}: Overtime approved: {result.data.hours}h{Environment.NewLine}");
+                    double totalHours = 8 + (double)result.Data.Hours;
+                    sessionManager.StartForcedLogoutTimer(totalHours);
+                    File.AppendAllText(overtimeLogPath,
+                        $"{DateTime.Now}: Overtime approved for {user} -> {result.Data.Hours}h extension{Environment.NewLine}");
+                    trayIcon?.ShowBalloonTip(3000, "Clock Enforcer", "Overtime approved. Shift extended.", ToolTipIcon.Info);
+                    statusTextBox.Text = "Overtime approved. Shift limit extended.";
                 }
             }
             catch (Exception ex)
             {
-                File.AppendAllText("overtime_debug_log.txt", $"{DateTime.Now}: ERROR: {ex.Message}{Environment.NewLine}");
+                File.AppendAllText(overtimeLogPath, $"{DateTime.Now}: ERROR: {ex.Message}{Environment.NewLine}");
             }
         }
 
@@ -192,8 +246,9 @@ namespace ClockEnforcer
             {
                 string user = txtUsername.Text;
                 string pass = txtPassword.Text;
+                string systemUser = Environment.UserName;
 
-                if (logService.IsUserLockedOut(user))
+                if (logService.IsUserLockedOut(systemUser))
                 {
                     statusTextBox.Text = "Access Denied: Locked out.";
                     return;
@@ -213,7 +268,7 @@ namespace ClockEnforcer
             catch (Exception ex)
             {
                 statusTextBox.Text = "An error occurred during login. Please try again.";
-                File.AppendAllText("error_log.txt", $"{DateTime.Now}: {ex}{Environment.NewLine}");
+                File.AppendAllText(errorLogPath, $"{DateTime.Now}: {ex}{Environment.NewLine}");
             }
             finally
             {
@@ -227,27 +282,34 @@ namespace ClockEnforcer
 
         private async Task ProcessPunchAsync(string user, string pass)
         {
-            string resp = await punchService.PunchAsync();
+            string resp = await punchService.PunchAsync(user, pass);
             statusTextBox.Text = resp;
+            string systemUser = Environment.UserName;
 
-            if (resp.Contains("PUNCH_OUT"))
+            if (resp.Contains("PUNCH_OUT", StringComparison.OrdinalIgnoreCase))
             {
+                sessionManager.OnPunchOut(logService.HasCompletedShiftForToday(systemUser));
+                StopOvertimeMonitoring();
+                if (loginReenableTimer != null)
+                {
+                    loginReenableTimer.Stop();
+                    loginReenableTimer.Dispose();
+                    loginReenableTimer = null;
+                }
+
+                btnLogin.Enabled = true;
                 await Task.Delay(5000);
                 new PCLoginEnforcer().ForceUserLogOff();
             }
-            else if (resp.Contains("PUNCH_IN"))
+            else if (resp.Contains("PUNCH_IN", StringComparison.OrdinalIgnoreCase))
             {
-                loginTimer?.Stop();
-                loginTimer?.Dispose();
-                loginTimer = null;
+                sessionManager.OnPunchIn();
+                btnRequestOvertime.Enabled = logService.GetTodayLoginCount(systemUser) >= 2;
 
-                btnRequestOvertime.Enabled = logService.GetTodayLoginCount(user) >= 2;
+                StartOvertimeMonitoring();
 
-                overtimeAdded = false;
-                overtimeCheckTimer = new System.Windows.Forms.Timer { Interval = 30_000 };
-                overtimeCheckTimer.Tick += OvertimeCheckTimer_Tick;
-                overtimeCheckTimer.Start();
-
+                loginReenableTimer?.Stop();
+                loginReenableTimer?.Dispose();
                 loginReenableTimer = new System.Windows.Forms.Timer { Interval = 1_800_000 };
                 loginReenableTimer.Tick += (s, e) =>
                 {
@@ -270,18 +332,25 @@ namespace ClockEnforcer
             }
         }
 
-    }
+        private void StartOvertimeMonitoring()
+        {
+            overtimeAdded = false;
+            StopOvertimeMonitoring();
+            overtimeCheckTimer = new System.Windows.Forms.Timer { Interval = 30_000 };
+            overtimeCheckTimer.Tick += OvertimeCheckTimer_Tick;
+            overtimeCheckTimer.Start();
+        }
 
-    public class OvertimeTodayResponse
-    {
-        public int status { get; set; }
-        public string label { get; set; }
-        public OvertimeData data { get; set; }
-    }
+        private void StopOvertimeMonitoring()
+        {
+            if (overtimeCheckTimer != null)
+            {
+                overtimeCheckTimer.Stop();
+                overtimeCheckTimer.Tick -= OvertimeCheckTimer_Tick;
+                overtimeCheckTimer.Dispose();
+                overtimeCheckTimer = null;
+            }
+        }
 
-    public class OvertimeData
-    {
-        public bool accepted { get; set; }
-        public decimal hours { get; set; }
     }
 }

@@ -1,13 +1,16 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 using ClockEnforcer.Services;
 
 namespace ClockEnforcer
 {
     class PCLoginEnforcer
     {
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool LockWorkStation();
+
         private readonly AuthService authService;
         private readonly PunchService punchService;
         private readonly LogService logService = new LogService();
@@ -22,6 +25,12 @@ namespace ClockEnforcer
 
         public void EnforceLoginRestrictions(string username)
         {
+            if (logService.HasCompletedShiftForToday(username))
+            {
+                ForceUserLogOff();
+                return;
+            }
+
             int todayCount = logService.GetTodayLoginCount(username);
             if (todayCount % 2 != 0)
             {
@@ -78,13 +87,11 @@ namespace ClockEnforcer
             await Task.Delay(10000);
             try
             {
-                Process.Start(new ProcessStartInfo
+                if (!LockWorkStation())
                 {
-                    FileName = "rundll32.exe",
-                    Arguments = "user32.dll,LockWorkStation",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                });
+                    File.AppendAllText(debugLogPath,
+                        $"{DateTime.Now}: ERROR locking workstation: Win32 error {Marshal.GetLastWin32Error()}{Environment.NewLine}");
+                }
             }
             catch (Exception ex)
             {
